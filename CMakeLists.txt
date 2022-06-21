@@ -17,55 +17,86 @@
 # along with eiquadprog.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-CMAKE_MINIMUM_REQUIRED(VERSION 3.1)
+# ==============================================================================
+#                             PROJECT CONFIGURATION                             
+# ==============================================================================
 
-# Project properties
-SET(PROJECT_ORG stack-of-tasks)
-SET(PROJECT_NAME eiquadprog)
-SET(PROJECT_DESCRIPTION "C++ reimplementation of eiquadprog")
-SET(PROJECT_URL "https://github.com/${PROJECT_ORG}/${PROJECT_NAME}")
+cmake_minimum_required(VERSION 3.5)
+project(eiquadprog)
 
-# Project options
-OPTION(TRACE_SOLVER "trace solver on stderr" OFF)
+# Default to C99
+if(NOT CMAKE_C_STANDARD)
+    set(CMAKE_C_STANDARD 99)
+endif()
 
-# Project configuration
-SET(PROJECT_USE_CMAKE_EXPORT TRUE)
-SET(CXX_DISABLE_WERROR TRUE)
-SET(CMAKE_VERBOSE_MAKEFILE TRUE)
-SET(PROJECT_CUSTOM_HEADER_EXTENSION "hpp")
+# Default to C++14
+if(NOT CMAKE_CXX_STANDARD)
+    set(CMAKE_CXX_STANDARD 14)
+endif()
 
-# JRL-cmakemodule setup
-INCLUDE(cmake/base.cmake)
-INCLUDE(cmake/boost.cmake)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-# Project definition
-COMPUTE_PROJECT_ARGS(PROJECT_ARGS LANGUAGES CXX)
-PROJECT(${PROJECT_NAME} ${PROJECT_ARGS})
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Project dependencies
-ADD_PROJECT_DEPENDENCY(Eigen3 REQUIRED)
-FIND_PACKAGE(Boost REQUIRED COMPONENTS unit_test_framework)
 
-# Main Library
-SET(${PROJECT_NAME}_HEADERS
-  include/${PROJECT_NAME}/eiquadprog.hpp
-  include/${PROJECT_NAME}/eiquadprog-fast.hpp
-  include/${PROJECT_NAME}/eiquadprog-rt.hpp
-  include/${PROJECT_NAME}/eiquadprog-rt.hxx
-  include/${PROJECT_NAME}/eiquadprog-utils.hxx
-  )
 
-ADD_LIBRARY(${PROJECT_NAME} SHARED
-  src/eiquadprog-fast.cpp
-  src/eiquadprog.cpp
-  )
+# ==============================================================================
+#                               FIND DEPENDENCIES                               
+# ==============================================================================
 
-IF(TRACE_SOLVER)
-  TARGET_COMPILE_DEFINITIONS(${PROJECT_NAME} PRIVATE TRACE_SOLVER)
-ENDIF(TRACE_SOLVER)
+find_package(ament_cmake REQUIRED)
+find_package(Eigen3 REQUIRED)
 
-TARGET_INCLUDE_DIRECTORIES(${PROJECT_NAME} SYSTEM PUBLIC ${EIGEN3_INCLUDE_DIR})
-TARGET_INCLUDE_DIRECTORIES(${PROJECT_NAME} INTERFACE $<INSTALL_INTERFACE:include>)
-INSTALL(TARGETS ${PROJECT_NAME} EXPORT ${TARGETS_EXPORT_NAME} DESTINATION lib)
 
-ADD_SUBDIRECTORY(tests)
+
+# ==============================================================================
+#                                 ADD LIBRARIES                                 
+# ==============================================================================
+
+add_library(${PROJECT_NAME} SHARED
+    src/eiquadprog-fast.cpp
+    src/eiquadprog.cpp
+)
+
+target_include_directories(${PROJECT_NAME} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+    ${EIGEN3_INCLUDE_DIR}
+)
+
+ament_target_dependencies(${PROJECT_NAME} Eigen3)
+
+ament_export_targets(${PROJECT_NAME}_targets HAS_LIBRARY_TARGET)
+ament_export_dependencies(
+    Eigen3
+)
+
+install(
+    DIRECTORY include/
+    DESTINATION include/${PROJECT_NAME}
+)
+install(
+    TARGETS ${PROJECT_NAME}
+    EXPORT ${PROJECT_NAME}_targets
+    LIBRARY DESTINATION lib/${PROJECT_NAME}
+    ARCHIVE DESTINATION lib/${PROJECT_NAME}
+    RUNTIME DESTINATION bin/${PROJECT_NAME}
+    INCLUDES DESTINATION include/${PROJECT_NAME}
+)
+
+
+
+if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    # the following line skips the linter which checks for copyrights
+    # uncomment the line when a copyright and license is not present in all source files
+    #set(ament_cmake_copyright_FOUND TRUE)
+    # the following line skips cpplint (only works in a git repo)
+    # uncomment the line when this package is not in a git repo
+    #set(ament_cmake_cpplint_FOUND TRUE)
+    ament_lint_auto_find_test_dependencies()
+endif()
+
+ament_package()
